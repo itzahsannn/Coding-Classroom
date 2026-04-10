@@ -38,31 +38,31 @@ Make sure you have Node.js (v16.14.0 or newer) installed.
 ### Installation
 
 1. **Clone the repository**
-   \`\`\`bash
+   ```bash
    git clone https://github.com/itzahsannn/Coding-Classroom.git
    cd Coding-Classroom/coding-classroom-frontend
-   \`\`\`
+   ```
 
 2. **Install dependencies**
-   \`\`\`bash
+   ```bash
    npm install
-   \`\`\`
+   ```
 
 3. **Start the development server**
-   \`\`\`bash
+   ```bash
    npm run dev
-   \`\`\`
+   ```
 
 4. **Open your browser**
-   Navigate to \`http://localhost:5173\` (or the port specified in your terminal).
+   Navigate to `http://localhost:5173\` (or the port specified in your terminal).
 
-> **Note**: The application initializes to the \`/login\` route by default. Authentication is currently operating in local-mock mode, so supplying any credentials will successfully authenticate and generate a session.
+> **Note**: The application initializes to the `/login\` route by default. Authentication is currently operating in local-mock mode, so supplying any credentials will successfully authenticate and generate a session.
 
 ## Architecture & Directory Structure
 
 The project strictly follows a scalable, component-driven directory hierarchy:
 
-\`\`\`text
+```text
 src/
 ├── api/             # Mock services and network delays resolving JSON payloads
 ├── components/
@@ -74,8 +74,7 @@ src/
 │   └── auth/        # Specialized authentication screens
 ├── App.tsx          # Root Component & Global Providers
 └── ClassroomRoutes.tsx # Centralized Routing Logic
-\`\`\`
-
+```
 ## 🛣 Roadmap / Upcoming Integrations
 
 While the frontend visualization and workflow logic are completed, the following backend/infrastructure tasks are scheduled for subsequent sprints:
