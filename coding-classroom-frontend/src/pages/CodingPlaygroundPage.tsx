@@ -50,12 +50,12 @@ export default function CodingPlaygroundPage() {
         }
       />
 
-      <div className="flex-1 flex flex-col p-6 w-full max-w-[1400px] mx-auto overflow-hidden">
+      <div className="flex-1 flex flex-col p-4 lg:p-6 pb-0 w-full max-w-[1400px] mx-auto min-h-0 h-[calc(100vh-3.5rem)]">
         
-        <div className="flex-1 flex flex-col bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden min-h-0">
+        <div className="flex-1 flex flex-col bg-white border border-gray-200 rounded-t-xl lg:rounded-xl shadow-sm overflow-hidden min-h-0">
           
           {/* Editor Header */}
-          <div className="flex items-center justify-between border-b border-gray-100 px-4 py-2 shrink-0 bg-white">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b border-gray-100 px-4 py-3 shrink-0 bg-white gap-3 overflow-x-auto">
             <div className="flex items-center gap-2">
               <div 
                 onClick={() => setActiveFile('main.js')}
@@ -128,7 +128,7 @@ export default function CodingPlaygroundPage() {
           </div>
 
           {/* Terminal Output */}
-          <div className="h-64 bg-[#1e1e1e] flex flex-col shrink-0">
+          <div className="h-40 md:h-64 bg-[#1e1e1e] flex flex-col shrink-0">
             <div className="px-4 py-2 border-b border-gray-700/50">
               <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">Terminal Output</span>
             </div>
