@@ -33,7 +33,7 @@ export default function DashboardHome() {
     <div className="min-h-full bg-[#FAF9F6] font-[Inter]">
       <DashboardTopBar />
 
-      <div className="max-w-6xl mx-auto px-6 py-8">
+      <div className="max-w-6xl mx-auto px-4 lg:px-6 py-8">
         
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold text-[#111827] tracking-tight">Enrolled</h1>

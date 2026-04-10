@@ -26,9 +26,10 @@ export default function CalendarPage() {
         }
       />
       
-      <div className="flex-1 flex flex-col p-6 max-w-[1200px] w-full mx-auto">
+      
+      <div className="flex-1 flex flex-col p-4 md:p-6 max-w-[1200px] w-full mx-auto">
         
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
           <div className="flex items-center gap-4">
             <h1 className="text-2xl font-bold text-[#111827]">October 2023</h1>
             <div className="flex items-center gap-1">
@@ -51,9 +52,10 @@ export default function CalendarPage() {
           </div>
         </div>
 
-        <div className="flex-1 bg-white border border-gray-200 rounded-lg overflow-hidden flex flex-col shadow-sm">
-          {/* Days Header */}
-          <div className="grid grid-cols-7 border-b border-gray-200 bg-white py-3">
+        <div className="flex-1 bg-white border border-gray-200 rounded-lg overflow-x-auto shadow-sm flex flex-col">
+          <div className="min-w-[800px] flex-1 flex flex-col">
+            {/* Days Header */}
+            <div className="grid grid-cols-7 border-b border-gray-200 bg-white py-3">
             {days.map((day) => (
               <div key={day} className="text-center text-sm font-semibold text-gray-500">
                 {day}
@@ -89,7 +91,7 @@ export default function CalendarPage() {
             ))}
           </div>
         </div>
-
+            </ div>
       </div>
     </div>
   )

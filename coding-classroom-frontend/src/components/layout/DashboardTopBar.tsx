@@ -18,8 +18,16 @@ export default function DashboardTopBar({ breadcrumbs }: { breadcrumbs?: React.R
 
   return (
     <>
-    <div className="bg-[#FAF9F6] lg:bg-transparent h-14 flex items-center justify-between px-6 shrink-0 pt-2 lg:pt-4 relative z-50">
+    <div className="bg-[#FAF9F6] lg:bg-transparent h-14 flex items-center justify-between px-4 lg:px-6 shrink-0 pt-2 lg:pt-4 relative z-40">
       <div className="flex items-center gap-2 text-sm text-[#5F6368] font-medium">
+        <button 
+          onClick={() => window.dispatchEvent(new CustomEvent('toggle-sidebar'))}
+          className="lg:hidden p-1.5 mr-1 hover:bg-gray-200 rounded-md transition-colors text-gray-700"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
         {breadcrumbs}
       </div>
 
@@ -94,11 +102,11 @@ export default function DashboardTopBar({ breadcrumbs }: { breadcrumbs?: React.R
             )}
           </div>
 
-          <button className="hover:text-gray-900 transition-colors">
+          {/* <button className="hover:text-gray-900 transition-colors">
             <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
             </svg>
-          </button>
+          </button> */}
 
         </div>
       </div>

@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { api } from '@/api'
 import { useFetch } from '@/hooks/useFetch'
 import LoadingSpinner from '@/components/common/LoadingSpinner'
@@ -17,11 +17,37 @@ const DashboardLayout = () => {
 
   const { data: courses, loading } = useFetch(api.getCourses)
 
+  const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth >= 1024)
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 1024) setIsSidebarOpen(false)
+      else setIsSidebarOpen(true)
+    }
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  useEffect(() => {
+    const handleToggle = () => setIsSidebarOpen(prev => !prev)
+    window.addEventListener('toggle-sidebar', handleToggle)
+    return () => window.removeEventListener('toggle-sidebar', handleToggle)
+  }, [])
+
   return (
-    <div className="flex h-screen overflow-hidden" style={{ fontFamily: 'Inter, system-ui, sans-serif', color: '#111827' }}>
+    <div className="flex h-screen overflow-hidden relative" style={{ fontFamily: 'Inter, system-ui, sans-serif', color: '#111827' }}>
       
+      {/* Mobile Backdrop */}
+      {isSidebarOpen && window.innerWidth < 1024 && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden backdrop-blur-sm"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
+      {/* Sidebar */}
       <aside
-        className="flex flex-col shrink-0 overflow-y-auto"
+        className={`fixed lg:static inset-y-0 left-0 z-50 flex flex-col shrink-0 overflow-y-auto transform transition-transform duration-300 ease-in-out lg:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
         style={{
           width: '260px',
           background: '#F5F5F3', 
