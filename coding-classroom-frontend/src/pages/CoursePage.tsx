@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '@/api'
 import { useFetch } from '@/hooks/useFetch'
+import DashboardTopBar from '@/components/layout/DashboardTopBar'
 import CourseHeader from '@/components/course/CourseHeader'
 import CourseTabs from '@/components/course/CourseTabs'
 import AnnouncementCard from '@/components/course/AnnouncementCard'
@@ -22,26 +23,15 @@ const CoursePage = () => {
 
   return (
     <div className="min-h-full bg-[#F8F9FA]">
-      <div className="bg-white border-b border-[#E0E0E0] flex items-center justify-between px-6 py-2">
-        <div className="flex items-center gap-2 text-sm text-[#5F6368]">
-          <button onClick={() => navigate('/course/student')} className="hover:text-[#1967D2] transition-colors">Course</button>
-          <span>›</span>
-          <span className="text-[#202124] font-medium">{course.name}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-2 border border-[#DADCE0] rounded-full px-4 py-1.5 text-sm text-[#5F6368] bg-[#F1F3F4]">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
-              <path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
-            </svg>
-            <span>Search</span>
-          </div>
-          <div className="w-8 h-8 rounded-full bg-[#E8EAED] flex items-center justify-center">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#5F6368" className="w-5 h-5">
-              <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-            </svg>
-          </div>
-        </div>
-      </div>
+      <DashboardTopBar 
+        breadcrumbs={
+          <>
+            <button onClick={() => navigate('/dashboard')} className="hover:text-[#1967D2] transition-colors">Course</button>
+            <span>›</span>
+            <span className="text-[#202124] font-medium">{course.name}</span>
+          </>
+        }
+      />
 
       <CourseHeader course={course} isTeacher={false} />
       <CourseTabs active={activeTab} onChange={setActiveTab} isTeacher={false} />

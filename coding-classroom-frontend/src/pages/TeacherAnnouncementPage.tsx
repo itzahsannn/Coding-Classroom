@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { api } from '@/api'
 import { useFetch } from '@/hooks/useFetch'
 import LoadingSpinner from '@/components/common/LoadingSpinner'
+import DashboardTopBar from '@/components/layout/DashboardTopBar'
 
 const INITIAL_COMMENTS = [
   { id: 1, author: 'Ali Hassan', initials: 'AH', color: '#10B981', time: '1 hr ago', text: 'Will the exam cover CSS Grid or just Flexbox?' },
@@ -51,27 +52,18 @@ const TeacherAnnouncementPage = () => {
   if (courseLoading || annLoading || !course || !ann) return <LoadingSpinner />
 
   return (
-    <div className="min-h-full bg-[#F8F9FA]">
-      <div className="bg-white border-b border-[#E0E0E0] flex items-center justify-between px-6 py-3">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => navigate('/course/teacher')}
-            className="p-1.5 text-[#5F6368] hover:bg-[#F1F3F4] rounded-full transition-colors"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-              <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
-            </svg>
-          </button>
-          <div className="flex items-center gap-2 text-sm text-[#5F6368]">
-            <button onClick={() => navigate('/course/teacher')} className="hover:text-[#1967D2] transition-colors">
-              {course.name}
-            </button>
-            <span>›</span>
+    <div className="min-h-full bg-[#F8F9FA] flex flex-col">
+      <DashboardTopBar 
+        breadcrumbs={
+          <>
+            <button onClick={() => navigate('/course/teacher')} className="hover:text-[#1967D2] transition-colors">{course.name}</button>
+            <span className="mx-2 text-gray-400">›</span>
             <span className="text-[#202124] font-medium">Announcement</span>
-          </div>
-        </div>
+          </>
+        }
+      />
 
-        <div className="flex items-center gap-2">
+      <div className="flex justify-end max-w-3xl mx-auto px-6 pt-4 gap-2">
           <button
             onClick={() => setIsEditing(!isEditing)}
             className={`flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium rounded-full transition-colors ${
@@ -94,10 +86,9 @@ const TeacherAnnouncementPage = () => {
             </svg>
             Delete
           </button>
-        </div>
       </div>
 
-      <div className="max-w-3xl mx-auto px-6 py-8 space-y-4">
+      <div className="max-w-3xl mx-auto px-6 pb-8 pt-4 space-y-4">
         <div className="bg-white rounded-lg border border-[#E0E0E0] shadow-sm overflow-hidden">
           <div className="h-1" style={{ backgroundColor: ann.authorColor }} />
           <div className="p-5">

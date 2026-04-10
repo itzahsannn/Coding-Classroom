@@ -11,6 +11,10 @@ const DashboardLayout = () => {
   const [tab, setTab] = useState<'enrolled' | 'hidden'>('enrolled')
   
   const basePath = isTeacher ? '/course/teacher' : '/course/student'
+  const isHomeActive = location.pathname === '/dashboard' || location.pathname === '/'
+  const isCalendarActive = location.pathname === '/calendar'
+  const isPlaygroundActive = location.pathname === '/coding-playground'
+
   const { data: courses, loading } = useFetch(api.getCourses)
 
   return (
@@ -43,30 +47,45 @@ const DashboardLayout = () => {
         <div className="px-5 space-y-2.5 mb-2">
           
           <Link
-            to={basePath}
-            className="flex items-center justify-center w-full py-2.5 rounded-lg text-sm text-gray-600 font-medium hover:bg-white transition-all shadow-sm"
-            style={{ border: '1px solid #D1D5DB', backgroundColor: '#F8F9FA' }}
+            to="/dashboard"
+            className="flex items-center justify-center w-full py-2.5 rounded-lg text-sm font-medium transition-all shadow-sm"
+            style={{ 
+              backgroundColor: isHomeActive ? '#4285F4' : '#F8F9FA',
+              color: isHomeActive ? 'white' : '#4B5563',
+              border: isHomeActive ? '1px solid #3B82F6' : '1px solid #D1D5DB',
+              boxShadow: isHomeActive ? '0 4px 6px -1px rgba(66, 133, 244, 0.4)' : ''
+            }}
           >
             Home
           </Link>
           
           <Link
-            to="#"
-            className="flex items-center justify-center gap-2.5 w-full py-2.5 rounded-lg text-sm text-gray-600 font-medium hover:bg-white transition-all shadow-sm"
-            style={{ border: '1px solid #D1D5DB', backgroundColor: '#F8F9FA' }}
+            to="/calendar"
+            className="flex items-center justify-center gap-2.5 w-full py-2.5 rounded-lg text-sm font-medium transition-all shadow-sm"
+            style={{ 
+              backgroundColor: isCalendarActive ? '#4285F4' : '#F8F9FA',
+              color: isCalendarActive ? 'white' : '#4B5563',
+              border: isCalendarActive ? '1px solid #3B82F6' : '1px solid #D1D5DB',
+              boxShadow: isCalendarActive ? '0 4px 6px -1px rgba(66, 133, 244, 0.4)' : ''
+            }}
           >
-            <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 text-gray-700">
+            <svg viewBox="0 0 24 24" fill="currentColor" className={`w-4 h-4 ${isCalendarActive ? 'text-white' : 'text-gray-700'}`}>
               <path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11z"/>
             </svg>
             Calendar
           </Link>
           
           <Link
-            to="#"
-            className="flex items-center justify-center gap-2.5 w-full py-2.5 rounded-lg text-sm text-gray-600 font-medium hover:bg-white transition-all shadow-sm"
-            style={{ border: '1px solid #D1D5DB', backgroundColor: '#F8F9FA' }}
+            to="/coding-playground"
+            className="flex items-center justify-center gap-2.5 w-full py-2.5 rounded-lg text-sm font-medium transition-all shadow-sm"
+            style={{ 
+              backgroundColor: isPlaygroundActive ? '#4285F4' : '#F8F9FA',
+              color: isPlaygroundActive ? 'white' : '#4B5563',
+              border: isPlaygroundActive ? '1px solid #3B82F6' : '1px solid #D1D5DB',
+              boxShadow: isPlaygroundActive ? '0 4px 6px -1px rgba(66, 133, 244, 0.4)' : ''
+            }}
           >
-            <span className="font-bold font-mono text-gray-700 text-sm">{`{}`}</span>
+            <span className={`font-bold font-mono text-sm ${isPlaygroundActive ? 'text-white' : 'text-gray-700'}`}>{`{}`}</span>
             Coding Playground
           </Link>
           
@@ -113,21 +132,24 @@ const DashboardLayout = () => {
           {loading ? (
             <div className="py-4"><LoadingSpinner /></div>
           ) : (
-            courses?.map((course, i) => (
-              <button
-                key={course.id + i}
-                onClick={() => navigate(basePath)}
-                className="w-full flex items-center gap-4 py-2 rounded-lg hover:bg-black/5 transition-all text-left group"
-              >
-                <span
-                  className="w-4 h-4 rounded-full shrink-0 group-hover:scale-110 transition-transform"
-                  style={{ backgroundColor: course.color }}
-                />
-                <span className="truncate text-[14px] font-semibold text-[#3C4043]">
-                  {course.name}
-                </span>
-              </button>
-            ))
+            courses?.map((course, i) => {
+              const targetPath = i >= 4 ? '/course/teacher' : '/course/student'
+              return (
+                <button
+                  key={course.id + i}
+                  onClick={() => navigate(targetPath)}
+                  className="w-full flex items-center gap-4 py-2 rounded-lg hover:bg-black/5 transition-all text-left group"
+                >
+                  <span
+                    className="w-4 h-4 rounded-full shrink-0 group-hover:scale-110 transition-transform"
+                    style={{ backgroundColor: course.color }}
+                  />
+                  <span className="truncate text-[14px] font-semibold text-[#3C4043]">
+                    {course.name}
+                  </span>
+                </button>
+              )
+            })
           )}
         </div>
 

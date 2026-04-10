@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { api } from '@/api'
 import { useFetch } from '@/hooks/useFetch'
 import LoadingSpinner from '@/components/common/LoadingSpinner'
+import DashboardTopBar from '@/components/layout/DashboardTopBar'
 
 const AssignmentPage = () => {
   const { id } = useParams()
@@ -18,26 +19,18 @@ const AssignmentPage = () => {
   if (courseLoading || asgnLoading || !course || !asgn) return <LoadingSpinner />
 
   return (
-    <div className="min-h-full bg-[#F8F9FA]">
-      <div className="bg-white border-b border-[#E0E0E0] flex items-center gap-2 px-6 py-3">
-        <button
-          onClick={() => navigate('/course/student')}
-          className="p-1.5 text-[#5F6368] hover:bg-[#F1F3F4] rounded-full transition-colors"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-            <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
-          </svg>
-        </button>
-        <div className="flex items-center gap-2 text-sm text-[#5F6368]">
-          <button onClick={() => navigate('/course/student')} className="hover:text-[#1967D2] transition-colors">
-            {course.name}
-          </button>
-          <span>›</span>
-          <span className="text-[#202124] font-medium">Classwork</span>
-          <span>›</span>
-          <span className="text-[#202124] font-medium">{asgn.title}</span>
-        </div>
-      </div>
+    <div className="min-h-full bg-[#F8F9FA] flex flex-col">
+      <DashboardTopBar 
+        breadcrumbs={
+          <>
+            <button onClick={() => navigate('/course/student')} className="hover:text-[#1967D2] transition-colors">{course.name}</button>
+            <span className="mx-2 text-gray-400">›</span>
+            <span className="text-[#202124] font-medium">Classwork</span>
+            <span className="mx-2 text-gray-400">›</span>
+            <span className="text-[#202124] font-medium">{asgn.title}</span>
+          </>
+        }
+      />
 
       <div className="max-w-5xl mx-auto px-6 py-8 flex flex-col md:flex-row gap-6">
         <div className="flex-1 space-y-4">
@@ -124,15 +117,27 @@ const AssignmentPage = () => {
               </div>
             ) : (
               !submitted && (
-                <button
-                  onClick={() => setFile('my_assignment.pdf')}
-                  className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm text-[#1967D2] border border-[#DADCE0] rounded-lg hover:bg-[#E8F0FE] transition-colors font-medium mb-3"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
-                    <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
-                  </svg>
-                  Add or create
-                </button>
+                <div className="flex flex-col gap-2 mb-4">
+                  <button
+                    onClick={() => navigate(`/coding-playground?assignmentId=${id}`)}
+                    className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm text-white bg-[#1967D2] rounded-lg hover:bg-[#1557B0] transition-colors font-medium shadow-sm"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" className="w-4 h-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="16 18 22 12 16 6"></polyline>
+                      <polyline points="8 6 2 12 8 18"></polyline>
+                    </svg>
+                    Open in Coding Screen
+                  </button>
+                  <button
+                    onClick={() => setFile('my_assignment.pdf')}
+                    className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm text-[#1967D2] border border-[#DADCE0] rounded-lg hover:bg-[#E8F0FE] transition-colors font-medium"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
+                      <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                    </svg>
+                    Add or create
+                  </button>
+                </div>
               )
             )}
 

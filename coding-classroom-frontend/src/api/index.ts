@@ -135,12 +135,19 @@ export const api = {
     await delay()
     return {
       teachers: [
-        { id: 't1', name: 'Rushda Muneer', initial: 'M', color: '#1967D2' }
+        { id: 't1', name: 'Teacher 1 {Teacher}', initial: 'T1', color: '#E8EAED' },
+        { id: 't2', name: 'Teacher 2 {Teaching Assistant}', initial: 'T2', color: '#F3E8FD' },
+        { id: 't3', name: 'Teacher 3', initial: 'T3', color: '#F3E8FD' },
+        { id: 't4', name: 'Teacher 4', initial: 'T4', color: '#E8EAED' },
       ],
       students: [
-        { id: 's1', name: 'Ahmad Abdul Rahman', initial: 'A', color: '#E67C73' },
-        { id: 's2', name: 'Zaid Khan', initial: 'Z', color: '#F2A600' },
-        { id: 's3', name: 'Sara Smith', initial: 'S', color: '#129EAF' },
+        { id: 's1', name: 'Student 1', initial: 'S1', color: '#E8EAED' },
+        { id: 's2', name: 'Student 2', initial: 'S2', color: '#F3E8FD' },
+        { id: 's3', name: 'Student 3', initial: 'S3', color: '#F3E8FD' },
+        { id: 's4', name: 'Student 4', initial: 'S4', color: '#E8EAED' },
+        { id: 's5', name: 'Student 5', initial: 'S5', color: '#F3E8FD' },
+        { id: 's6', name: 'Student 6', initial: 'S6', color: '#E8EAED' },
+        { id: 's7', name: 'Student 7', initial: 'S7', color: '#F3E8FD' },
       ]
     }
   },
