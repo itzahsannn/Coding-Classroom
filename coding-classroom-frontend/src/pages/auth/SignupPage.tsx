@@ -21,9 +21,16 @@ export default function SignupPage() {
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [error, setError] = useState('')
 
   const handleSignup = (e: React.FormEvent) => {
     e.preventDefault()
+    if (password !== confirmPassword) {
+      setError('Passwords do not match')
+      return
+    }
+    setError('')
     // No backend yet, just navigate to dashboard
     navigate('/dashboard')
   }
@@ -67,9 +74,28 @@ export default function SignupPage() {
                 placeholder="Create a password..."
                 className="w-full px-4 py-2.5 bg-white border border-[#1976D2] rounded-md text-sm text-gray-900 outline-none shadow-[0_0_0_1px_#1976D2_inset] placeholder:text-[#9AA0A6]"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => {
+                  setPassword(e.target.value)
+                  setError('')
+                }}
                 required
               />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-[#5F6368] mb-1.5 ml-1">Re-enter Password</label>
+              <input
+                type="password"
+                placeholder="Re-enter your password..."
+                className="w-full px-4 py-2.5 bg-white border border-[#1976D2] rounded-md text-sm text-gray-900 outline-none shadow-[0_0_0_1px_#1976D2_inset] placeholder:text-[#9AA0A6]"
+                value={confirmPassword}
+                onChange={(e) => {
+                  setConfirmPassword(e.target.value)
+                  setError('')
+                }}
+                required
+              />
+              {error && <p className="text-xs text-red-600 mt-1 ml-1">{error}</p>}
             </div>
 
             <button
