@@ -40,7 +40,7 @@ Make sure you have Node.js (v16.14.0 or newer) installed.
 1. **Clone the repository**
    ```bash
    git clone https://github.com/itzahsannn/Coding-Classroom.git
-   cd Coding-Classroom/coding-classroom-frontend
+   cd Coding-Classroom/frontend
    ```
 
 2. **Install dependencies**
@@ -54,9 +54,19 @@ Make sure you have Node.js (v16.14.0 or newer) installed.
    ```
 
 4. **Open your browser**
-   Navigate to `http://localhost:5173\` (or the port specified in your terminal).
+   Navigate to `http://localhost:5173` (or the port specified in your terminal).
 
-> **Note**: The application initializes to the `/login\` route by default. Authentication is currently operating in local-mock mode, so supplying any credentials will successfully authenticate and generate a session.
+## Test Credentials
+
+To test the application without registering new accounts, use the following demo credentials:
+
+**Teacher Account:**
+- **Email:** `teacher@example.com`
+- **Password:** `password123`
+
+**Student Account:**
+- **Email:** `student@example.com`
+- **Password:** `password123`
 
 ## Architecture & Directory Structure
 
@@ -75,13 +85,14 @@ src/
 ├── App.tsx          # Root Component & Global Providers
 └── ClassroomRoutes.tsx # Centralized Routing Logic
 ```
-## 🛣 Roadmap / Upcoming Integrations
+## Backend & Infrastructure
 
-While the frontend visualization and workflow logic are completed, the following backend/infrastructure tasks are scheduled for subsequent sprints:
+The project utilizes a robust full-stack architecture:
 
-- [ ] **Dockerized Code Execution**: Binding the Coding Playground's virtual terminal to a backend sandboxed container service (e.g. AWS Lambda / Docker instances) to safely execute raw Python/Node.js logic.
-- [ ] **PostgreSQL Data Layer**: Replacing the \`api/index.ts\` mock handlers with GraphQL / REST API calls syncing to a fully clustered database schema.
-- [ ] **JWT Authentication**: Migrating mock-logins to OAuth 2.0 (Google Workspace integration) using HTTP-only secure cookies.
+- **Database & Auth**: [Supabase](https://supabase.com/) (PostgreSQL, Storage Buckets, ES256 JWT Authentication).
+- **Code Execution Engine**: Express.js backend interfacing with the host Docker daemon to safely execute student submissions within isolated `python:3.11-alpine` and `node:20-alpine` containers.
+- **Code Editor**: [Monaco Editor](https://microsoft.github.io/monaco-editor/) (the engine powering VS Code) integrated directly into the playground for rich syntax highlighting and IDE features.
+- **AI Feedback**: Integrated OpenRouter LLM pipeline to provide automated, actionable feedback on student code submissions.
 
 ## Developers
   - Muhammad Ahsan (23L-0621)
