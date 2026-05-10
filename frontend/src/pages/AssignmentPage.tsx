@@ -270,7 +270,7 @@ const AssignmentPage = () => {
                         {/* Code files: open in playground; others: download */}
                         {isCodeFile(f.name) ? (
                           <button
-                            onClick={() => handleOpenInPlayground(f)}
+                            onClick={() => handleOpenFileInPlayground(f)}
                             className="text-xs text-[#1967D2] font-medium truncate block hover:underline w-full text-left"
                             title="Open in Coding Playground"
                           >
@@ -331,7 +331,7 @@ const AssignmentPage = () => {
 
                   {/* Open in Playground (generic — loads existing or sandbox) */}
                   <button
-                    onClick={() => navigate(`/coding-playground?assignmentId=${id}&classroomId=${classroomId}`)}
+                    onClick={handleOpenInPlayground}
                     className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm text-white bg-[#1967D2] rounded-lg hover:bg-[#1557B0] font-medium shadow-sm"
                   >
                     <svg viewBox="0 0 24 24" fill="none" className="w-4 h-4" stroke="currentColor" strokeWidth="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
