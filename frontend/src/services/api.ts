@@ -8,7 +8,10 @@ interface RequestOptions extends RequestInit {
 async function request<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
   const { params, ...init } = options
 
-  let url = `${API_BASE_URL}${endpoint}`
+  // Safely combine API_BASE_URL and endpoint to avoid double slashes
+  const base = API_BASE_URL.replace(/\/$/, '')
+  const path = endpoint.replace(/^\//, '')
+  let url = `${base}/${path}`
   if (params) {
     const searchParams = new URLSearchParams(
       Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)]))
