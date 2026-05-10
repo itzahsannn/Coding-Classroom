@@ -9,7 +9,11 @@ async function request<T>(endpoint: string, options: RequestOptions = {}): Promi
   const { params, ...init } = options
 
   // Safely combine API_BASE_URL and endpoint to avoid double slashes
-  const base = API_BASE_URL.replace(/\/$/, '')
+  let base = API_BASE_URL.replace(/\/$/, '')
+  // If the user forgot to add /api in Vercel, add it automatically
+  if (!base.endsWith('/api')) {
+    base += '/api'
+  }
   const path = endpoint.replace(/^\//, '')
   let url = `${base}/${path}`
   if (params) {
