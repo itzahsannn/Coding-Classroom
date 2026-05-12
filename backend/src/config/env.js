@@ -26,6 +26,11 @@ export const config = {
   llmApiKey: process.env.LLM_API_KEY || '',
   llmModel: process.env.LLM_MODEL || 'meta-llama/llama-3.3-70b-instruct:free',
 
+  // Ollama Cloud — OpenAI-compatible cloud inference
+  ollamaApiUrl: process.env.OLLAMA_API_URL || 'https://ollama.com/v1/chat/completions',
+  ollamaApiKey: process.env.OLLAMA_API_KEY || '',
+  ollamaModel: process.env.OLLAMA_MODEL || 'llama3.2',
+
   dockerImage: process.env.DOCKER_IMAGE || 'python:3.11-alpine',
   execTimeoutMs: parseInt(process.env.EXEC_TIMEOUT_MS || '10000', 10),
   execMemoryLimit: process.env.EXEC_MEMORY_LIMIT || '128m',

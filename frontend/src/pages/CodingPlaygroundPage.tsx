@@ -1,4 +1,6 @@
 import DashboardTopBar from '@/components/layout/DashboardTopBar'
+import AIChatPanel from '@/components/AIChatPanel'
+import AIHintPanel from '@/components/AIHintPanel'
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { api } from '@/api'
@@ -44,7 +46,6 @@ export default function CodingPlaygroundPage() {
   const [searchParams] = useSearchParams()
   const assignmentId = searchParams.get('assignmentId')
   const classroomId = searchParams.get('classroomId')
-  // filePath is passed when opening a specific uploaded student file
   const filePath = searchParams.get('filePath')
   const editorRef = useRef<any>(null)
   const { role } = useAuth()
@@ -55,9 +56,15 @@ export default function CodingPlaygroundPage() {
   const [loadedFileName, setLoadedFileName] = useState<string | null>(null)
   const [isRunning, setIsRunning] = useState(false)
   const [isEvaluating, setIsEvaluating] = useState(false)
+  const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [isExplaining, setIsExplaining] = useState(false)
+  const [showChat, setShowChat] = useState(false)
+  const [showHints, setShowHints] = useState(false)
   const [output, setOutput] = useState<string | null>(null)
   const [outputType, setOutputType] = useState<'success' | 'error' | 'info'>('info')
+  const [errorExplanation, setErrorExplanation] = useState<string | null>(null)
   const [feedback, setFeedback] = useState<string | null>(null)
+  const [analysis, setAnalysis] = useState<{ score: number; errors: string[]; suggestions: string[]; summary: string } | null>(null)
   const [submissionId, setSubmissionId] = useState<string | null>(null)
   const [terminalExpanded, setTerminalExpanded] = useState(false)
   const [validAssignment, setValidAssignment] = useState<boolean | null>(null)
@@ -73,13 +80,12 @@ export default function CodingPlaygroundPage() {
     if (!filePath) return
     const rawFileName = filePath.split('/').pop() || 'file'
     const fileName = rawFileName.includes('_') ? rawFileName.substring(rawFileName.indexOf('_') + 1) : rawFileName
-    
+
     const lang = LANGUAGES.find(l => fileName.endsWith(l.ext)) || LANGUAGES[0]
     setLanguage(lang)
     setLoadedFileName(fileName)
     setValidAssignment(!!assignmentId)
 
-    // Get a signed URL and fetch the file text
     supabase.storage
       .from('submissions')
       .createSignedUrl(filePath, 3600)
@@ -96,7 +102,7 @@ export default function CodingPlaygroundPage() {
 
   // Load existing submission & validate assignment (only when no filePath)
   useEffect(() => {
-    if (filePath) return // already handled above
+    if (filePath) return
     if (assignmentId) {
       api.getAssignmentById(assignmentId).then(() => {
         setValidAssignment(true)
@@ -109,7 +115,7 @@ export default function CodingPlaygroundPage() {
             setLoadedFileName(sub.filename)
             if (sub.llm_feedback) setFeedback(sub.llm_feedback)
           }
-        }).catch(() => {})
+        }).catch(() => { })
       }).catch(() => {
         setValidAssignment(false)
       })
@@ -131,7 +137,7 @@ export default function CodingPlaygroundPage() {
     setFeedback(null)
   }
 
-  // ─── Run = just execute, no saving ───
+  // ─── Run ───
   const handleRun = async () => {
     setIsRunning(true)
     setOutput(null)
@@ -162,7 +168,7 @@ export default function CodingPlaygroundPage() {
     }
   }
 
-  // ─── Submit = save to Supabase with custom filename ───
+  // ─── Submit ───
   const openSubmitModal = () => {
     if (filePath) {
       handleSaveDirectly()
@@ -178,13 +184,9 @@ export default function CodingPlaygroundPage() {
     if (!assignmentId || !filePath) return
     setIsSubmitting(true)
     try {
-      // 1. Update the actual attached file in Supabase Storage
       await api.updateStorageFile(filePath, code)
-      
-      // 2. Upsert into the submissions table so AI Feedback has the code
       const sub = await api.submitCode(assignmentId, loadedFileName || 'solution.py', code)
       setSubmissionId(sub.id)
-
       setSubmitSuccess(true)
       setTimeout(() => setSubmitSuccess(false), 2000)
     } catch (err: any) {
@@ -212,7 +214,7 @@ export default function CodingPlaygroundPage() {
     }
   }
 
-  // ─── AI Feedback (requires saved submission) ───
+  // ─── AI Feedback ───
   const handleEvaluate = async () => {
     if (!submissionId) return
     setIsEvaluating(true)
@@ -229,213 +231,427 @@ export default function CodingPlaygroundPage() {
     }
   }
 
+  // ─── AI Analyse ───
+  const handleAnalyze = async () => {
+    setIsAnalyzing(true)
+    setAnalysis(null)
+    try {
+      const result = await expressApi.post<{ score: number; errors: string[]; suggestions: string[]; summary: string }>(
+        '/analyze',
+        { code, language: language.id }
+      )
+      setAnalysis(result)
+    } catch (err: any) {
+      setAnalysis({
+        score: 0,
+        errors: [`Error: ${err.message || 'Analysis failed'}`],
+        suggestions: [],
+        summary: 'Could not connect to Ollama Cloud. Check your OLLAMA_API_KEY in backend/.env.',
+      })
+    } finally {
+      setIsAnalyzing(false)
+    }
+  }
+
+  // ─── Explain Error ───
+  const handleExplainError = async () => {
+    if (!output || outputType !== 'error') return
+    setIsExplaining(true)
+    setErrorExplanation(null)
+    try {
+      const result = await expressApi.post<{ explanation: string }>(
+        '/explain-error',
+        { code, language: language.id, error: output }
+      )
+      setErrorExplanation(result.explanation)
+    } catch (err: any) {
+      setErrorExplanation(`Could not explain error: ${err.message}`)
+    } finally {
+      setIsExplaining(false)
+    }
+  }
+
   const handleReset = () => {
     setCode(language.boilerplate)
     setOutput(null)
     setFeedback(null)
+    setAnalysis(null)
+    setErrorExplanation(null)
   }
 
   return (
     <div className="min-h-full bg-[#1e1e1e] flex flex-col h-screen">
-      <DashboardTopBar breadcrumbs={
-        <>
-          <button onClick={() => navigate(classroomId ? `/course/${classroomId}` : '/dashboard')} className="hover:text-[#1967D2] transition-colors">
-            {classroomId ? 'Course' : 'Dashboard'}
-          </button>
-          <span className="mx-2 text-gray-400">›</span>
-          <span className="text-[#202124] font-medium">Coding Playground</span>
-        </>
-      }/>
 
-      <div className="flex-1 flex flex-col min-h-0">
-        {/* ─── Toolbar ─── */}
-        <div className="flex items-center justify-between px-4 py-2 bg-[#252526] border-b border-[#3c3c3c] shrink-0">
-          {/* Language Tabs */}
-          <div className="flex items-center gap-1">
-            {LANGUAGES.map((lang) => (
-              <button
-                key={lang.id}
-                onClick={() => switchLanguage(lang)}
-                className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                  language.id === lang.id
-                    ? 'bg-[#1e1e1e] text-white border border-[#3c3c3c]'
-                    : 'text-[#969696] hover:text-white hover:bg-[#2d2d2d]'
-                }`}
-              >
-                <span>{lang.icon}</span>
-                <span>{lang.label}</span>
-              </button>
-            ))}
-            <div className="w-px h-6 bg-[#3c3c3c] mx-2" />
-            <span className="text-xs text-[#666] font-mono">
-              {submissionId ? '✓ saved' : 'unsaved'}
-            </span>
-          </div>
+      {/* ─── Outer row: editor column + chat sidebar ─── */}
+      <div className="flex-1 flex min-h-0">
 
-          {/* Action Buttons */}
-          <div className="flex items-center gap-2">
-            <button onClick={handleReset}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-[#969696] hover:text-white hover:bg-[#2d2d2d] rounded-md transition-colors font-medium">
-              <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5"><path d="M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
-              Reset
-            </button>
-
-            {/* Run — just execute */}
-            <button onClick={handleRun} disabled={isRunning}
-              className="flex items-center gap-1.5 px-4 py-1.5 bg-[#0e639c] hover:bg-[#1177bb] text-white text-sm font-medium rounded-md transition-colors disabled:opacity-60">
-              {isRunning ? (
-                <svg className="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><circle cx="12" cy="12" r="10" strokeOpacity="0.25"/><path d="M12 2a10 10 0 019.8 8" strokeLinecap="round"/></svg>
-              ) : (
-                <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5"><path d="M8 5v14l11-7z"/></svg>
-              )}
-              {isRunning ? 'Running...' : 'Run'}
-            </button>
-
-            {/* Submit — save with filename (students only) */}
-            {validAssignment && isStudent && (
-              <button onClick={openSubmitModal} disabled={isSubmitting}
-                className="flex items-center gap-1.5 px-4 py-1.5 bg-[#6a1b9a] hover:bg-[#7b1fa2] text-white text-sm font-medium rounded-md transition-colors disabled:opacity-60">
-                {isSubmitting ? (
-                  <svg className="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><circle cx="12" cy="12" r="10" strokeOpacity="0.25"/><path d="M12 2a10 10 0 019.8 8" strokeLinecap="round"/></svg>
-                ) : submitSuccess ? (
-                  <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
-                ) : (
-                  <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5"><path d="M19 12v7H5v-7H3v7c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-7h-2zm-6 .67l2.59-2.58L17 11.5l-5 5-5-5 1.41-1.41L11 12.67V3h2v9.67z"/></svg>
-                )}
-                {submitSuccess ? 'Saved' : isSubmitting ? 'Saving...' : 'Submit'}
-              </button>
-            )}
-
-            {/* AI Feedback — requires saved submission */}
-            {submissionId && (
-              <button onClick={handleEvaluate} disabled={isEvaluating}
-                className="flex items-center gap-1.5 px-4 py-1.5 bg-[#388e3c] hover:bg-[#43a047] text-white text-sm font-medium rounded-md transition-colors disabled:opacity-60">
-                {isEvaluating ? (
-                  <svg className="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><circle cx="12" cy="12" r="10" strokeOpacity="0.25"/><path d="M12 2a10 10 0 019.8 8" strokeLinecap="round"/></svg>
-                ) : (
-                  <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
-                )}
-                {isEvaluating ? 'Evaluating...' : 'AI Feedback'}
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* ─── Editor + Terminal Split ─── */}
+        {/* ─── Left column: top bar + toolbar + editor + terminal + panels ─── */}
         <div className="flex-1 flex flex-col min-h-0">
-          {/* Sandbox warning */}
-          {validAssignment === false && (
-            <div className="flex items-center gap-2 px-4 py-2 bg-[#332b00] border-b border-[#665500] shrink-0">
-              <svg viewBox="0 0 24 24" fill="#ffb300" className="w-4 h-4 shrink-0"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>
-              <span className="text-xs text-[#ffcc02]">
-                <strong>Sandbox mode</strong> — you can run code, but open from an assignment to submit.{' '}
-                <button onClick={() => navigate('/dashboard')} className="underline hover:text-white">Go to Dashboard</button>
+          {/* ─── Top Bar ─── */}
+          <div className="bg-[#252526] shrink-0">
+            <DashboardTopBar breadcrumbs={
+              <>
+                <button onClick={() => navigate(classroomId ? `/course/${classroomId}` : '/dashboard')} className="text-[#969696] hover:text-white transition-colors">
+                  {classroomId ? 'Course' : 'Dashboard'}
+                </button>
+                <span className="mx-2 text-gray-500">›</span>
+                <span className="text-gray-200 font-medium">Coding Playground</span>
+              </>
+            } />
+          </div>
+
+          {/* ─── Toolbar ─── */}
+          <div className="flex items-center justify-between px-4 py-2 bg-[#252526] border-b border-[#3c3c3c] shrink-0">
+            {/* Language Tabs */}
+            <div className="flex items-center gap-1">
+              {LANGUAGES.map((lang) => (
+                <button
+                  key={lang.id}
+                  onClick={() => switchLanguage(lang)}
+                  className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${language.id === lang.id
+                      ? 'bg-[#1e1e1e] text-white border border-[#3c3c3c]'
+                      : 'text-[#969696] hover:text-white hover:bg-[#2d2d2d]'
+                    }`}
+                >
+                  <span>{lang.icon}</span>
+                  <span>{lang.label}</span>
+                </button>
+              ))}
+              <div className="w-px h-6 bg-[#3c3c3c] mx-2" />
+              <span className="text-xs text-[#666] font-mono">
+                {submissionId ? '✓ saved' : 'unsaved'}
               </span>
             </div>
-          )}
 
-          {/* Monaco Editor */}
-          <div className={`${terminalExpanded ? 'h-[55%]' : 'flex-1'} min-h-0`}>
-            <Editor
-              height="100%"
-              language={language.monacoId}
-              value={code}
-              onChange={(v) => setCode(v || '')}
-              onMount={handleEditorMount}
-              theme="vs-dark"
-              options={{
-                fontSize: 14,
-                fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace",
-                fontLigatures: true,
-                minimap: { enabled: false },
-                scrollBeyondLastLine: false,
-                automaticLayout: true,
-                padding: { top: 16, bottom: 16 },
-                lineNumbers: 'on',
-                renderLineHighlight: 'line',
-                cursorBlinking: 'smooth',
-                cursorSmoothCaretAnimation: 'on',
-                smoothScrolling: true,
-                bracketPairColorization: { enabled: true },
-                tabSize: language.id === 'python' ? 4 : 2,
-                insertSpaces: true,
-                wordWrap: 'off',
-                suggest: { showKeywords: true, showSnippets: true },
-              }}
-            />
+            {/* Action Buttons */}
+            <div className="flex items-center gap-2">
+              <button onClick={handleReset}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-[#969696] hover:text-white hover:bg-[#2d2d2d] rounded-md transition-colors font-medium">
+                <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5"><path d="M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z" /></svg>
+                Reset
+              </button>
+
+              {/* Run */}
+              <button onClick={handleRun} disabled={isRunning}
+                className="flex items-center gap-1.5 px-4 py-1.5 bg-[#0e639c] hover:bg-[#1177bb] text-white text-sm font-medium rounded-md transition-colors disabled:opacity-60">
+                {isRunning ? (
+                  <svg className="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><circle cx="12" cy="12" r="10" strokeOpacity="0.25" /><path d="M12 2a10 10 0 019.8 8" strokeLinecap="round" /></svg>
+                ) : (
+                  <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5"><path d="M8 5v14l11-7z" /></svg>
+                )}
+                {isRunning ? 'Running...' : 'Run'}
+              </button>
+
+              {/* AI Analyse */}
+              <button onClick={handleAnalyze} disabled={isAnalyzing}
+                className="flex items-center gap-1.5 px-4 py-1.5 bg-[#4a1d96] hover:bg-[#5b21b6] text-white text-sm font-medium rounded-md transition-colors disabled:opacity-60">
+                {isAnalyzing ? (
+                  <svg className="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><circle cx="12" cy="12" r="10" strokeOpacity="0.25" /><path d="M12 2a10 10 0 019.8 8" strokeLinecap="round" /></svg>
+                ) : (
+                  <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5"><path d="M9 3L5 6.99h3V14h2V6.99h3L9 3zm7 14.01V10h-2v7.01h-3L15 21l4-3.99h-3z" /></svg>
+                )}
+                {isAnalyzing ? 'Analysing...' : 'AI Analyse'}
+              </button>
+
+              {/* AI Tutor Chat */}
+              <button onClick={() => setShowChat(c => !c)}
+                className={`flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${showChat ? 'bg-violet-700 text-white' : 'bg-[#1e1b4b] hover:bg-[#2d2a6e] text-violet-300'
+                  }`}>
+                <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" /></svg>
+                {showChat ? 'Close Chat' : 'AI Tutor'}
+              </button>
+
+              {/* Hints */}
+              {validAssignment && (
+                <button onClick={() => setShowHints(h => !h)}
+                  className={`flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${showHints ? 'bg-purple-800 text-white' : 'bg-[#1a0d35] hover:bg-[#2d1555] text-purple-300'
+                    }`}>
+                  <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5"><path d="M9 21c0 .55.45 1 1 1h4c.55 0 1-.45 1-1v-1H9v1zm3-19C8.14 2 5 5.14 5 9c0 2.38 1.19 4.47 3 5.74V17c0 .55.45 1 1 1h6c.55 0 1-.45 1-1v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.86-3.14-7-7-7z" /></svg>
+                  {showHints ? 'Close Hints' : 'Hints'}
+                </button>
+              )}
+
+              {/* Submit (students only) */}
+              {validAssignment && isStudent && (
+                <button onClick={openSubmitModal} disabled={isSubmitting}
+                  className="flex items-center gap-1.5 px-4 py-1.5 bg-[#6a1b9a] hover:bg-[#7b1fa2] text-white text-sm font-medium rounded-md transition-colors disabled:opacity-60">
+                  {isSubmitting ? (
+                    <svg className="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><circle cx="12" cy="12" r="10" strokeOpacity="0.25" /><path d="M12 2a10 10 0 019.8 8" strokeLinecap="round" /></svg>
+                  ) : submitSuccess ? (
+                    <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" /></svg>
+                  ) : (
+                    <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5"><path d="M19 12v7H5v-7H3v7c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-7h-2zm-6 .67l2.59-2.58L17 11.5l-5 5-5-5 1.41-1.41L11 12.67V3h2v9.67z" /></svg>
+                  )}
+                  {submitSuccess ? 'Saved' : isSubmitting ? 'Saving...' : 'Submit'}
+                </button>
+              )}
+
+              {/* Legacy AI Feedback */}
+              {submissionId && (
+                <button onClick={handleEvaluate} disabled={isEvaluating}
+                  className="flex items-center gap-1.5 px-4 py-1.5 bg-[#388e3c] hover:bg-[#43a047] text-white text-sm font-medium rounded-md transition-colors disabled:opacity-60">
+                  {isEvaluating ? (
+                    <svg className="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><circle cx="12" cy="12" r="10" strokeOpacity="0.25" /><path d="M12 2a10 10 0 019.8 8" strokeLinecap="round" /></svg>
+                  ) : (
+                    <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" /></svg>
+                  )}
+                  {isEvaluating ? 'Evaluating...' : 'AI Feedback'}
+                </button>
+              )}
+            </div>
           </div>
 
-          {/* ─── Terminal Panel ─── */}
-          <div className={`${terminalExpanded ? 'h-[45%]' : 'h-10'} flex flex-col bg-[#1e1e1e] border-t border-[#3c3c3c] shrink-0 transition-all`}>
-            <button
-              onClick={() => setTerminalExpanded(!terminalExpanded)}
-              className="flex items-center justify-between px-4 py-2 bg-[#252526] border-b border-[#3c3c3c] cursor-pointer hover:bg-[#2d2d2d] shrink-0"
-            >
-              <div className="flex items-center gap-3">
-                <span className="text-[11px] uppercase font-bold text-[#969696] tracking-wider">Terminal</span>
-                {output !== null && !terminalExpanded && (
-                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
-                    outputType === 'error' ? 'bg-red-900/40 text-red-400' :
-                    outputType === 'success' ? 'bg-green-900/40 text-green-400' :
-                    'bg-blue-900/40 text-blue-400'
-                  }`}>
-                    {outputType === 'error' ? 'Error' : outputType === 'success' ? 'Done' : 'Info'}
-                  </span>
-                )}
+          {/* ─── Editor + Terminal Split ─── */}
+          <div className="flex-1 flex flex-col min-h-0">
+            {/* Sandbox warning */}
+            {validAssignment === false && (
+              <div className="flex items-center gap-2 px-4 py-2 bg-[#332b00] border-b border-[#665500] shrink-0">
+                <svg viewBox="0 0 24 24" fill="#ffb300" className="w-4 h-4 shrink-0"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z" /></svg>
+                <span className="text-xs text-[#ffcc02]">
+                  <strong>Sandbox mode</strong> — you can run code, but open from an assignment to submit.{' '}
+                  <button onClick={() => navigate('/dashboard')} className="underline hover:text-white">Go to Dashboard</button>
+                </span>
               </div>
-              <svg viewBox="0 0 24 24" fill="currentColor" className={`w-4 h-4 text-[#969696] transition-transform ${terminalExpanded ? '' : 'rotate-180'}`}>
-                <path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z"/>
-              </svg>
-            </button>
+            )}
 
-            {terminalExpanded && (
-              <div className="flex-1 overflow-auto p-4 font-mono text-sm leading-relaxed min-h-0">
-                {output !== null ? (
-                  <>
-                    <div className="mb-1">
+            {/* Monaco Editor */}
+            <div className={`${terminalExpanded ? 'h-[55%]' : 'flex-1'} min-h-0`}>
+              <Editor
+                height="100%"
+                language={language.monacoId}
+                value={code}
+                onChange={(v) => setCode(v || '')}
+                onMount={handleEditorMount}
+                theme="vs-dark"
+                options={{
+                  fontSize: 14,
+                  fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace",
+                  fontLigatures: true,
+                  minimap: { enabled: false },
+                  scrollBeyondLastLine: false,
+                  automaticLayout: true,
+                  padding: { top: 16, bottom: 16 },
+                  lineNumbers: 'on',
+                  renderLineHighlight: 'line',
+                  cursorBlinking: 'smooth',
+                  cursorSmoothCaretAnimation: 'on',
+                  smoothScrolling: true,
+                  bracketPairColorization: { enabled: true },
+                  tabSize: language.id === 'python' ? 4 : 2,
+                  insertSpaces: true,
+                  wordWrap: 'off',
+                  suggest: { showKeywords: true, showSnippets: true },
+                }}
+              />
+            </div>
+
+            {/* ─── Terminal Panel ─── */}
+            <div className={`${terminalExpanded ? 'h-[45%]' : 'h-10'} flex flex-col bg-[#1e1e1e] border-t border-[#3c3c3c] shrink-0 transition-all`}>
+              <button
+                onClick={() => setTerminalExpanded(!terminalExpanded)}
+                className="flex items-center justify-between px-4 py-2 bg-[#252526] border-b border-[#3c3c3c] cursor-pointer hover:bg-[#2d2d2d] shrink-0"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-[11px] uppercase font-bold text-[#969696] tracking-wider">Terminal</span>
+                  {output !== null && !terminalExpanded && (
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${outputType === 'error' ? 'bg-red-900/40 text-red-400' :
+                        outputType === 'success' ? 'bg-green-900/40 text-green-400' :
+                          'bg-blue-900/40 text-blue-400'
+                      }`}>
+                      {outputType === 'error' ? 'Error' : outputType === 'success' ? 'Done' : 'Info'}
+                    </span>
+                  )}
+                </div>
+                <svg viewBox="0 0 24 24" fill="currentColor" className={`w-4 h-4 text-[#969696] transition-transform ${terminalExpanded ? '' : 'rotate-180'}`}>
+                  <path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z" />
+                </svg>
+              </button>
+
+              {terminalExpanded && (
+                <div className="flex-1 overflow-auto p-4 font-mono text-sm leading-relaxed min-h-0">
+                  {output !== null ? (
+                    <>
+                      <div className="mb-1">
+                        <span className="text-green-500">❯ </span>
+                        <span className="text-[#569cd6]">{language.id === 'python' ? 'python' : 'node'}</span>
+                        <span className="text-white"> {loadedFileName || (language.id === 'python' ? 'script.py' : 'main.js')}</span>
+                      </div>
+                      <pre className={`whitespace-pre-wrap ${outputType === 'error' ? 'text-red-400' : 'text-[#d4d4d4]'}`}>{output}</pre>
+
+                      {/* Explain Error button */}
+                      {outputType === 'error' && (
+                        <div className="mt-4">
+                          <button
+                            onClick={handleExplainError}
+                            disabled={isExplaining}
+                            className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all disabled:opacity-50 border"
+                            style={{ background: 'rgba(239,68,68,0.1)', borderColor: 'rgba(239,68,68,0.3)', color: '#fca5a5' }}
+                          >
+                            {isExplaining ? (
+                              <svg className="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                                <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
+                                <path d="M12 2a10 10 0 019.8 8" strokeLinecap="round" />
+                              </svg>
+                            ) : <span>🤔</span>}
+                            {isExplaining ? 'Asking AI...' : 'Explain this error'}
+                          </button>
+
+                          {errorExplanation && (
+                            <div className="mt-3 rounded-xl overflow-hidden border" style={{ borderColor: 'rgba(245,158,11,0.3)' }}>
+                              <div className="px-3 py-2 flex items-center gap-2" style={{ background: 'rgba(245,158,11,0.12)' }}>
+                                <span className="text-sm">💡</span>
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400">AI Explanation</span>
+                              </div>
+                              <div className="px-3 py-2.5 text-xs text-amber-200 leading-relaxed whitespace-pre-wrap" style={{ background: 'rgba(245,158,11,0.05)' }}>
+                                {errorExplanation}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      <div className="mt-3">
+                        <span className="text-green-500">❯ </span>
+                        <span className="w-2 h-4 bg-[#969696] inline-block animate-pulse" />
+                      </div>
+                    </>
+                  ) : isRunning ? (
+                    <div>
                       <span className="text-green-500">❯ </span>
                       <span className="text-[#569cd6]">{language.id === 'python' ? 'python' : 'node'}</span>
                       <span className="text-white"> {loadedFileName || (language.id === 'python' ? 'script.py' : 'main.js')}</span>
+                      <span className="ml-2 text-[#969696] animate-pulse">executing...</span>
                     </div>
-                    <pre className={`whitespace-pre-wrap ${outputType === 'error' ? 'text-red-400' : 'text-[#d4d4d4]'}`}>{output}</pre>
-                    <div className="mt-3">
-                      <span className="text-green-500">❯ </span>
-                      <span className="w-2 h-4 bg-[#969696] inline-block animate-pulse" />
+                  ) : (
+                    <div className="text-[#666] text-xs">
+                      Press <kbd className="px-1.5 py-0.5 bg-[#2d2d2d] rounded border border-[#3c3c3c] text-[#969696] font-mono text-[10px]">Run</kbd> to execute your code
                     </div>
-                  </>
-                ) : isRunning ? (
-                  <div>
-                    <span className="text-green-500">❯ </span>
-                    <span className="text-[#569cd6]">{language.id === 'python' ? 'python' : 'node'}</span>
-                    <span className="text-white"> {loadedFileName || (language.id === 'python' ? 'script.py' : 'main.js')}</span>
-                    <span className="ml-2 text-[#969696] animate-pulse">executing...</span>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* ─── AI Analysis Panel ─── */}
+            {analysis && (
+              <div className="shrink-0 flex flex-col border-t" style={{ background: '#09091a', borderColor: '#1e1b4b', maxHeight: '58%' }}>
+                {/* Header with score */}
+                <div className="px-4 py-3 flex items-center justify-between shrink-0 border-b" style={{ background: 'linear-gradient(135deg, #1e1b4b 0%, #0f0e1f 100%)', borderColor: '#2d2a6e' }}>
+                  <div className="flex items-center gap-3">
+                    <div className="flex flex-col items-center justify-center w-11 h-11 rounded-xl border-2 font-bold text-lg leading-none"
+                      style={{
+                        borderColor: analysis.score >= 80 ? '#4ade80' : analysis.score >= 50 ? '#facc15' : '#f87171',
+                        color: analysis.score >= 80 ? '#4ade80' : analysis.score >= 50 ? '#facc15' : '#f87171',
+                        background: analysis.score >= 80 ? 'rgba(74,222,128,0.1)' : analysis.score >= 50 ? 'rgba(250,204,21,0.1)' : 'rgba(248,113,113,0.1)',
+                      }}>
+                      {analysis.score}
+                      <span className="text-[8px] font-normal opacity-50">/100</span>
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-white">AI Code Analysis</p>
+                      <p className="text-[10px] text-violet-400">Ollama Cloud</p>
+                    </div>
                   </div>
-                ) : (
-                  <div className="text-[#666] text-xs">
-                    Press <kbd className="px-1.5 py-0.5 bg-[#2d2d2d] rounded border border-[#3c3c3c] text-[#969696] font-mono text-[10px]">Run</kbd> to execute your code
-                  </div>
-                )}
+                  <button
+                    onClick={() => setAnalysis(null)}
+                    className="w-7 h-7 rounded-lg flex items-center justify-center text-violet-400 hover:text-white hover:bg-violet-800/40 transition-all text-sm"
+                  >✕</button>
+                </div>
+
+                {/* Body */}
+                <div className="flex-1 overflow-auto p-4 space-y-3">
+                  {/* Summary */}
+                  <p className="text-xs text-violet-200 leading-relaxed border-l-2 border-violet-600 pl-3">{analysis.summary}</p>
+
+                  {/* Errors */}
+                  {analysis.errors.length > 0 && (
+                    <div className="rounded-xl overflow-hidden border" style={{ borderColor: 'rgba(239,68,68,0.25)' }}>
+                      <div className="px-3 py-2 flex items-center gap-2" style={{ background: 'rgba(239,68,68,0.1)' }}>
+                        <span className="text-xs">🐛</span>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-red-400">Issues · {analysis.errors.length}</span>
+                      </div>
+                      <div className="px-3 py-2 space-y-2" style={{ background: 'rgba(239,68,68,0.04)' }}>
+                        {analysis.errors.map((e, i) => (
+                          <div key={i} className="flex items-start gap-2">
+                            <span className="shrink-0 w-4 h-4 rounded-full bg-red-900/60 flex items-center justify-center text-[9px] font-bold text-red-400 mt-0.5">{i + 1}</span>
+                            <p className="text-xs text-red-300 leading-relaxed">{e}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Suggestions */}
+                  {analysis.suggestions.length > 0 && (
+                    <div className="rounded-xl overflow-hidden border" style={{ borderColor: 'rgba(245,158,11,0.25)' }}>
+                      <div className="px-3 py-2 flex items-center gap-2" style={{ background: 'rgba(245,158,11,0.1)' }}>
+                        <span className="text-xs">💡</span>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400">Suggestions · {analysis.suggestions.length}</span>
+                      </div>
+                      <div className="px-3 py-2 space-y-2" style={{ background: 'rgba(245,158,11,0.04)' }}>
+                        {analysis.suggestions.map((s, i) => (
+                          <div key={i} className="flex items-start gap-2">
+                            <span className="shrink-0 w-4 h-4 rounded-full bg-amber-900/50 flex items-center justify-center text-[9px] font-bold text-amber-400 mt-0.5">{i + 1}</span>
+                            <p className="text-xs text-amber-200/90 leading-relaxed">{s}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {analysis.errors.length === 0 && analysis.suggestions.length === 0 && (
+                    <div className="flex items-center gap-2 px-3 py-2 rounded-xl" style={{ background: 'rgba(74,222,128,0.08)', border: '1px solid rgba(74,222,128,0.2)' }}>
+                      <span>✅</span>
+                      <p className="text-xs text-green-400 font-medium">No issues found — excellent code!</p>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
-          </div>
 
-          {/* ─── AI Feedback Panel ─── */}
-          {feedback && (
-            <div className="h-48 bg-[#1a2e1a] border-t border-[#2d5a2d] flex flex-col shrink-0">
-              <div className="px-4 py-2 bg-[#1e3a1e] border-b border-[#2d5a2d] flex items-center justify-between shrink-0">
-                <div className="flex items-center gap-2">
-                  <svg viewBox="0 0 24 24" fill="#4caf50" className="w-4 h-4"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
-                  <span className="text-[11px] uppercase font-bold text-green-400 tracking-wider">AI Feedback</span>
+            {/* ─── Legacy AI Feedback Panel ─── */}
+            {feedback && (
+              <div className="h-48 bg-[#1a2e1a] border-t border-[#2d5a2d] flex flex-col shrink-0">
+                <div className="px-4 py-2 bg-[#1e3a1e] border-b border-[#2d5a2d] flex items-center justify-between shrink-0">
+                  <div className="flex items-center gap-2">
+                    <svg viewBox="0 0 24 24" fill="#4caf50" className="w-4 h-4"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" /></svg>
+                    <span className="text-[11px] uppercase font-bold text-green-400 tracking-wider">AI Feedback</span>
+                  </div>
+                  <button onClick={() => setFeedback(null)} className="text-green-600 hover:text-green-400 text-xs font-medium">Close</button>
                 </div>
-                <button onClick={() => setFeedback(null)} className="text-green-600 hover:text-green-400 text-xs font-medium">Close</button>
+                <div className="flex-1 p-4 overflow-auto text-sm text-green-200 leading-relaxed whitespace-pre-wrap font-mono">
+                  {feedback}
+                </div>
               </div>
-              <div className="flex-1 p-4 overflow-auto text-sm text-green-200 leading-relaxed whitespace-pre-wrap font-mono">
-                {feedback}
-              </div>
-            </div>
-          )}
+            )}
+
+            {/* ─── Hints Panel ─── */}
+            {showHints && (
+              <AIHintPanel
+                code={code}
+                language={language.id}
+                assignmentDescription={"Complete the assignment"}
+                onClose={() => setShowHints(false)}
+              />
+            )}
+          </div>
+          {/* END: Editor + Terminal Split */}
+
         </div>
+        {/* END: Left column */}
+
+        {/* ─── AI Chat Sidebar (flex sibling to left column) ─── */}
+        {showChat && (
+          <div className="w-80 shrink-0 border-l border-[#1e1b4b] flex flex-col">
+            <AIChatPanel
+              code={code}
+              language={language.id}
+              onClose={() => setShowChat(false)}
+            />
+          </div>
+        )}
+
       </div>
+      {/* END: Outer row */}
 
       {/* ─── Submit Modal ─── */}
       {showSubmitModal && (
@@ -479,7 +695,7 @@ export default function CodingPlaygroundPage() {
               {/* Success message */}
               {submitSuccess && (
                 <div className="flex items-center gap-2 px-3 py-2 bg-green-900/30 border border-green-800 rounded-lg">
-                  <svg viewBox="0 0 24 24" fill="#4caf50" className="w-4 h-4"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+                  <svg viewBox="0 0 24 24" fill="#4caf50" className="w-4 h-4"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" /></svg>
                   <span className="text-xs text-green-400 font-medium">Submitted successfully!</span>
                 </div>
               )}
@@ -493,9 +709,9 @@ export default function CodingPlaygroundPage() {
               <button onClick={handleSubmit} disabled={isSubmitting || !submitFilename.trim() || submitSuccess}
                 className="flex items-center gap-2 px-5 py-2 bg-[#6a1b9a] hover:bg-[#7b1fa2] text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50">
                 {isSubmitting ? (
-                  <svg className="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><circle cx="12" cy="12" r="10" strokeOpacity="0.25"/><path d="M12 2a10 10 0 019.8 8" strokeLinecap="round"/></svg>
+                  <svg className="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><circle cx="12" cy="12" r="10" strokeOpacity="0.25" /><path d="M12 2a10 10 0 019.8 8" strokeLinecap="round" /></svg>
                 ) : (
-                  <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                  <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" /></svg>
                 )}
                 {isSubmitting ? 'Submitting...' : 'Submit'}
               </button>

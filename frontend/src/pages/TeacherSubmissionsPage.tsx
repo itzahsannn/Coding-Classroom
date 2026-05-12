@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { api } from '@/api'
+import { expressApi } from '@/services/api'
 import { useFetch } from '@/hooks/useFetch'
 import DashboardTopBar from '@/components/layout/DashboardTopBar'
 import LoadingSpinner from '@/components/common/LoadingSpinner'
@@ -22,6 +23,8 @@ export default function TeacherSubmissionsPage() {
   // Grading state for the selected student
   const [scoreInput, setScoreInput] = useState('')
   const [savingGrade, setSavingGrade] = useState(false)
+  const [isAiGrading, setIsAiGrading] = useState(false)
+  const [aiGrade, setAiGrade] = useState<{ suggestedScore: number; rationale: string; strengths: string[]; improvements: string[] } | null>(null)
 
   const { data: course, loading: courseLoading } = useFetch(
     () => api.getCourseDetails(classroomId!), [classroomId]
@@ -86,6 +89,7 @@ export default function TeacherSubmissionsPage() {
     } else {
       setScoreInput('')
     }
+    setAiGrade(null)
   }, [selectedStudentData])
 
   const handleDownload = async (file: UploadedFile) => {
@@ -105,7 +109,6 @@ export default function TeacherSubmissionsPage() {
     setSavingGrade(true)
     try {
       await api.gradeSubmission(selectedStudentData.submission.id, scoreNum)
-      // Optimistically update
       setSubmissions(prev => prev.map(s => {
         if (s.id === selectedStudentData.submission.id) {
           return { ...s, grades: [{ score: scoreNum }] }
@@ -117,6 +120,23 @@ export default function TeacherSubmissionsPage() {
       alert('Failed to save grade.')
     } finally {
       setSavingGrade(false)
+    }
+  }
+
+  const handleAiGrade = async () => {
+    if (!selectedStudentData?.submission?.id) return
+    setIsAiGrading(true)
+    setAiGrade(null)
+    try {
+      const result = await expressApi.post<{ suggestedScore: number; rationale: string; strengths: string[]; improvements: string[] }>(
+        `/submissions/${selectedStudentData.submission.id}/grade`
+      )
+      setAiGrade(result)
+      setScoreInput(result.suggestedScore.toString())
+    } catch (err: any) {
+      alert(`AI grading failed: ${err.message}`)
+    } finally {
+      setIsAiGrading(false)
     }
   }
 
@@ -219,6 +239,17 @@ export default function TeacherSubmissionsPage() {
                     />
                     <span className="text-sm font-medium text-[#5F6368]">/ {assignment.points}</span>
                   </div>
+                  {/* AI Grade button */}
+                  <button
+                    onClick={handleAiGrade}
+                    disabled={isAiGrading || !selectedStudentData.submission.code}
+                    className="flex items-center gap-1.5 px-3 py-2 bg-violet-50 hover:bg-violet-100 border border-violet-200 text-violet-700 text-sm font-medium rounded-md transition-colors disabled:opacity-50"
+                  >
+                    {isAiGrading ? (
+                      <svg className="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><circle cx="12" cy="12" r="10" strokeOpacity="0.25"/><path d="M12 2a10 10 0 019.8 8" strokeLinecap="round"/></svg>
+                    ) : '🤖'}
+                    {isAiGrading ? 'Grading...' : 'AI Grade'}
+                  </button>
                   <button 
                     onClick={handleSaveGrade}
                     disabled={savingGrade || !scoreInput}
@@ -232,6 +263,30 @@ export default function TeacherSubmissionsPage() {
               {/* Submission Content (Files & Code) */}
               <div className="flex-1 overflow-y-auto p-6 bg-[#F8F9FA]">
                 
+                {/* AI Grade Result Panel */}
+                {aiGrade && (
+                  <div className="mb-6 bg-violet-50 border border-violet-200 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-sm font-semibold text-violet-800 flex items-center gap-2">🤖 AI Grade Suggestion</p>
+                      <span className="text-lg font-bold text-violet-700">{aiGrade.suggestedScore} / {assignment.points}</span>
+                    </div>
+                    <p className="text-sm text-violet-700 mb-3">{aiGrade.rationale}</p>
+                    {aiGrade.strengths.length > 0 && (
+                      <div className="mb-2">
+                        <p className="text-xs font-semibold text-green-700 mb-1">✓ Strengths</p>
+                        <ul className="space-y-0.5">{aiGrade.strengths.map((s, i) => <li key={i} className="text-xs text-green-600">• {s}</li>)}</ul>
+                      </div>
+                    )}
+                    {aiGrade.improvements.length > 0 && (
+                      <div>
+                        <p className="text-xs font-semibold text-amber-700 mb-1">⚠ Improvements</p>
+                        <ul className="space-y-0.5">{aiGrade.improvements.map((s, i) => <li key={i} className="text-xs text-amber-600">• {s}</li>)}</ul>
+                      </div>
+                    )}
+                    <p className="text-[10px] text-violet-500 mt-3">Score pre-filled above. Review and click Return Grade to confirm.</p>
+                  </div>
+                )}
+
                 {/* Downloadable Files */}
                 {loadingFiles ? (
                   <div className="flex justify-center my-8"><LoadingSpinner /></div>
